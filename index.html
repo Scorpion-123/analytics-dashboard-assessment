@@ -58,6 +58,7 @@
 
     .sidebar label {
       display: block;
+      margin-bottom: 1rem;
       background-color: #120E24;
       color: #fff;
       padding: 0.5rem;
@@ -75,7 +76,7 @@
     }
 
     .sidebar select:hover {
-      background-color: #957DAD;
+      background-color: #666;
     }
 
     .main {
@@ -141,7 +142,7 @@
 </head>
 <body>
   <div class="sidebar">
-    <h2>Filter Parameters 🔍</h2>
+    <h2>Filter Parameters</h2>
     <label for="param1">Parameter 1:</label>
     <select id="param1"></select>
     <label for="param2">Parameter 2:</label>
@@ -150,53 +151,47 @@
   <div class="main">
     <header><span class="head-color">ELECTRIC VEHICLE</span> Analytics Dashboard</header>
     <div class="container" id="chartContainer"></div>
-    
-    <footer style="background-color: #120E24; color: white; text-align: center; padding: 1rem; font-size: 0.9rem;">
-      © Build By <span class='head-color'>Ankit Dey, 2025 FOR JU.</span> All rights reserved.
-    </footer>
-
   </div>
-
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const csvFile = './data-to-visualize/Electric_Vehicle_Population_Data.csv';
-      const dropdownA = document.getElementById('param1');
-      const dropdownB = document.getElementById('param2');
-    
-      const graphTypes = ['bar', 'line', 'pie', 'doughnut', 'radar'];
-    
-      function renderGraph(chartType, chartLabel, categoryLabels, chartData, wrapper, isLine) {
-        const chartContainer = document.createElement('div');
-        chartContainer.className = 'chart-box' + (isLine ? ' line-chart' : '');
-        chartContainer.innerHTML = `
-          <h3>${chartLabel} (${chartType})</h3>
+      const filePath = './data-to-visualize/Electric_Vehicle_Population_Data.csv';
+      const param1 = document.getElementById('param1');
+      const param2 = document.getElementById('param2');
+
+      const chartTypes = ['bar', 'line', 'pie', 'doughnut', 'radar'];
+
+      function createChart(type, title, labels, data, container, isLineChart) {
+        const chartBox = document.createElement('div');
+        chartBox.className = 'chart-box' + (isLineChart ? ' line-chart' : '');
+        chartBox.innerHTML = `
+          <h3>${title} (${type})</h3>
           <div class="chart-wrapper">
             <canvas></canvas>
           </div>
         `;
-        wrapper.appendChild(chartContainer);
-    
-        const context = chartContainer.querySelector('canvas');
-    
-        const colorSets = {
+        container.appendChild(chartBox);
+
+        const ctx = chartBox.querySelector('canvas');
+
+        const colorPalettes = {
           bar: ['#8E2DE2', '#D4A373', '#9A86A4', '#F2E9E4'],
           line: ['#9D4EDD', '#C77DFF', '#7B2CBF', '#E0AAFF'],
           pie: ['#B8B8FF', '#A78BFA', '#9D79BC', '#8C63B7', '#7B4DA2'],
           doughnut: ['#B8B8FF', '#A78BFA', '#9D79BC', '#8C63B7'],
           radar: ['#E6A8D4', '#D8B4FE', '#C0A3E6', '#A893D4'],
         };
-    
-        const chartColors = colorSets[chartType] || ['#3b82f6'];
-    
-        new Chart(context, {
-          type: chartType,
+
+        const colors = colorPalettes[type] || ['#3b82f6'];
+
+        new Chart(ctx, {
+          type,
           data: {
-            labels: categoryLabels,
+            labels,
             datasets: [{
-              label: chartLabel,
-              data: chartData,
-              backgroundColor: chartColors,
-              borderColor: chartColors,
+              label: title,
+              data,
+              backgroundColor: colors,
+              borderColor: colors,
               borderWidth: 1,
               borderRadius: 5
             }]
@@ -206,13 +201,13 @@
             maintainAspectRatio: false,
             plugins: {
               legend: {
-                position: chartType === 'pie' || chartType === 'doughnut' ? 'bottom' : 'top',
+                position: type === 'pie' || type === 'doughnut' ? 'bottom' : 'top',
                 labels: {
                   color: '#fff'
                 }
               }
             },
-            scales: chartType === 'bar' || chartType === 'line' ? {
+            scales: type === 'bar' || type === 'line' ? {
               y: {
                 beginAtZero: true,
                 ticks: { color: '#fff' },
@@ -226,58 +221,54 @@
           }
         });
       }
-    
-      function refreshVisuals(dataset) {
-        const displayArea = document.getElementById('chartContainer');
-        displayArea.innerHTML = '';
-    
-        const choice1 = dropdownA.value;
-        const choice2 = dropdownB.value;
-        const tally = {};
-    
-        dataset.forEach(entry => {
-          const key = `${entry[choice1]} | ${entry[choice2]}`;
-          if (!tally[key]) tally[key] = 0;
-          tally[key]++;
+
+      function updateCharts(data) {
+        const container = document.getElementById('chartContainer');
+        container.innerHTML = '';
+
+        const selected1 = param1.value;
+        const selected2 = param2.value;
+        const groupedData = {};
+
+        data.forEach(row => {
+          const key = `${row[selected1]} | ${row[selected2]}`;
+          if (!groupedData[key]) groupedData[key] = 0;
+          groupedData[key]++;
         });
-    
-        const topItems = Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 10);
-        const chartLabels = topItems.map(item => item[0]);
-        const chartValues = topItems.map(item => item[1]);
-    
-        renderGraph('line', `${choice1} vs ${choice2}`, chartLabels, chartValues, displayArea, true);
-    
-        graphTypes.filter(type => type !== 'line').forEach(graph => {
-          renderGraph(graph, `${choice1} vs ${choice2}`, chartLabels, chartValues, displayArea, false);
+
+        const sorted = Object.entries(groupedData).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const labels = sorted.map(e => e[0]);
+        const values = sorted.map(e => e[1]);
+
+        createChart('line', `${selected1} vs ${selected2}`, labels, values, container, true);
+
+        chartTypes.filter(type => type !== 'line').forEach(type => {
+          createChart(type, `${selected1} vs ${selected2}`, labels, values, container, false);
         });
       }
-    
-      fetch(csvFile)
-        .then(resp => resp.text())
-        .then(csvData => {
-          Papa.parse(csvData, {
+
+      fetch(filePath)
+        .then(response => response.text())
+        .then(csvText => {
+          Papa.parse(csvText, {
             header: true,
             skipEmptyLines: true,
-            complete: function(result) {
-              const parsed = result.data;
-              const columns = Object.keys(parsed[0]);
-    
-              columns.forEach(col => {
-                dropdownA.appendChild(new Option(col, col));
-                dropdownB.appendChild(new Option(col, col));
+            complete: function(results) {
+              const data = results.data;
+              const headers = Object.keys(data[0]);
+              headers.forEach(h => {
+                param1.appendChild(new Option(h, h));
+                param2.appendChild(new Option(h, h));
               });
-    
-              dropdownA.value = 'Make';
-              dropdownB.value = 'Model Year';
-    
-              refreshVisuals(parsed);
-    
-              dropdownA.addEventListener('change', () => refreshVisuals(parsed));
-              dropdownB.addEventListener('change', () => refreshVisuals(parsed));
+              param1.value = 'Make';
+              param2.value = 'Model Year';
+              updateCharts(data);
+              param1.addEventListener('change', () => updateCharts(data));
+              param2.addEventListener('change', () => updateCharts(data));
             }
           });
         });
-    });    
+    });
   </script>
 </body>
 </html>
