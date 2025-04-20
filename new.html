@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EV Analytics Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --primary: #E0BBE4;
+      --bg: #1E1A36;
+      --white: #fff;
+      --accent: #957DAD;
+      --divider: #4A3F6B;
+    }
+
+    * {
+      cursor: url('cursor.png'), auto;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background-color: var(--bg);
+      color: var(--white);
+      display: flex;
+      height: 100vh;
+    }
+
+    header {
+      background-color: #120E24;
+      color: var(--white);
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.8rem;
+      font-weight: 600;
+    }
+
+    .sidebar {
+      background-color: #120E24;
+      color: var(--white);
+      width: 250px;
+      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      min-height: 100vh;
+    }
+
+    .sidebar h2 {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+    }
+
+    .sidebar label {
+      display: block;
+      background-color: #120E24;
+      color: #fff;
+      padding: 0.5rem;
+      border-radius: 5px;
+    }
+
+    .sidebar select {
+      display: block;
+      margin-bottom: 1rem;
+      background-color: #28234A;
+      color: #fff;
+      border: none;
+      padding: 0.5rem;
+      border-radius: 5px;
+    }
+
+    .sidebar select:hover {
+      background-color: #957DAD;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .container {
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .chart-box {
+      background-color: #120E24;
+      color: var(--white);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s ease-in-out;
+      overflow: hidden;
+    }
+
+    .chart-box:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    }
+
+    .chart-box h3 {
+      margin-bottom: 1rem;
+      font-size: 1.2rem;
+      color: var(--primary);
+      text-align: center;
+    }
+
+    .chart-box .chart-wrapper {
+      height: 300px;
+      width: 100%;
+      position: relative;
+    }
+
+    .chart-box.line-chart {
+      grid-column: span 4;
+    }
+
+    .chart-box.line-chart .chart-wrapper {
+      height: 400px;
+    }
+
+    .head-color {
+      color: #E0BBE4;
+    }
+
+    @media (min-width: 768px) {
+      .container {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Filter Parameters 🔍</h2>
+    <label for="param1">Parameter 1:</label>
+    <select id="param1"></select>
+    <label for="param2">Parameter 2:</label>
+    <select id="param2"></select>
+  </div>
+  <div class="main">
+    <header><span class="head-color">ELECTRIC VEHICLE</span> Analytics Dashboard</header>
+    <div class="container" id="chartContainer"></div>
+    
+    <footer style="background-color: #120E24; color: white; text-align: center; padding: 1rem; font-size: 0.9rem;">
+      © Build By <span class='head-color'>Ankit Dey, 2025 FOR JU.</span> All rights reserved.
+    </footer>
+
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const csvFile = 'Electric_Vehicle_Population_Data.csv';
+      const dropdownA = document.getElementById('param1');
+      const dropdownB = document.getElementById('param2');
+    
+      const graphTypes = ['bar', 'line', 'pie', 'doughnut', 'radar'];
+    
+      function renderGraph(chartType, chartLabel, categoryLabels, chartData, wrapper, isLine) {
+        const chartContainer = document.createElement('div');
+        chartContainer.className = 'chart-box' + (isLine ? ' line-chart' : '');
+        chartContainer.innerHTML = `
+          <h3>${chartLabel} (${chartType})</h3>
+          <div class="chart-wrapper">
+            <canvas></canvas>
+          </div>
+        `;
+        wrapper.appendChild(chartContainer);
+    
+        const context = chartContainer.querySelector('canvas');
+    
+        const colorSets = {
+          bar: ['#8E2DE2', '#D4A373', '#9A86A4', '#F2E9E4'],
+          line: ['#9D4EDD', '#C77DFF', '#7B2CBF', '#E0AAFF'],
+          pie: ['#B8B8FF', '#A78BFA', '#9D79BC', '#8C63B7', '#7B4DA2'],
+          doughnut: ['#B8B8FF', '#A78BFA', '#9D79BC', '#8C63B7'],
+          radar: ['#E6A8D4', '#D8B4FE', '#C0A3E6', '#A893D4'],
+        };
+    
+        const chartColors = colorSets[chartType] || ['#3b82f6'];
+    
+        new Chart(context, {
+          type: chartType,
+          data: {
+            labels: categoryLabels,
+            datasets: [{
+              label: chartLabel,
+              data: chartData,
+              backgroundColor: chartColors,
+              borderColor: chartColors,
+              borderWidth: 1,
+              borderRadius: 5
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: chartType === 'pie' || chartType === 'doughnut' ? 'bottom' : 'top',
+                labels: {
+                  color: '#fff'
+                }
+              }
+            },
+            scales: chartType === 'bar' || chartType === 'line' ? {
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#fff' },
+                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+              },
+              x: {
+                ticks: { color: '#fff' },
+                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+              }
+            } : {}
+          }
+        });
+      }
+    
+      function refreshVisuals(dataset) {
+        const displayArea = document.getElementById('chartContainer');
+        displayArea.innerHTML = '';
+    
+        const choice1 = dropdownA.value;
+        const choice2 = dropdownB.value;
+        const tally = {};
+    
+        dataset.forEach(entry => {
+          const key = `${entry[choice1]} | ${entry[choice2]}`;
+          if (!tally[key]) tally[key] = 0;
+          tally[key]++;
+        });
+    
+        const topItems = Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const chartLabels = topItems.map(item => item[0]);
+        const chartValues = topItems.map(item => item[1]);
+    
+        renderGraph('line', `${choice1} vs ${choice2}`, chartLabels, chartValues, displayArea, true);
+    
+        graphTypes.filter(type => type !== 'line').forEach(graph => {
+          renderGraph(graph, `${choice1} vs ${choice2}`, chartLabels, chartValues, displayArea, false);
+        });
+      }
+    
+      fetch(csvFile)
+        .then(resp => resp.text())
+        .then(csvData => {
+          Papa.parse(csvData, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(result) {
+              const parsed = result.data;
+              const columns = Object.keys(parsed[0]);
+    
+              columns.forEach(col => {
+                dropdownA.appendChild(new Option(col, col));
+                dropdownB.appendChild(new Option(col, col));
+              });
+    
+              dropdownA.value = 'Make';
+              dropdownB.value = 'Model Year';
+    
+              refreshVisuals(parsed);
+    
+              dropdownA.addEventListener('change', () => refreshVisuals(parsed));
+              dropdownB.addEventListener('change', () => refreshVisuals(parsed));
+            }
+          });
+        });
+    });    
+  </script>
+</body>
+</html>
